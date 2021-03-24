@@ -192,11 +192,13 @@ class LogEntry(models.Model):
         CREATE = 0
         UPDATE = 1
         DELETE = 2
+        M2M_CHANGE = 3
 
         choices = (
             (CREATE, _("create")),
             (UPDATE, _("update")),
             (DELETE, _("delete")),
+            (M2M_CHANGE, _("m2m change")),
         )
 
     content_type = models.ForeignKey(
@@ -247,6 +249,8 @@ class LogEntry(models.Model):
             fstring = _("Updated {repr:s}")
         elif self.action == self.Action.DELETE:
             fstring = _("Deleted {repr:s}")
+        elif self.action == self.Action.M2M_CHANGE:
+            fstring = _("Changed M2M {repr:s}")
         else:
             fstring = _("Logged {repr:s}")
 

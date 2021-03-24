@@ -59,3 +59,28 @@ def log_delete(sender, instance, **kwargs):
             action=LogEntry.Action.DELETE,
             changes=json.dumps(changes),
         )
+
+
+def log_m2m_change(sender, instance, action, pk_set, **kwargs):
+    """
+    Signal receiver that creates a log entry when an m2m field on a model instance is changed and saved to the database.
+
+    Direct use is discouraged, connect your model through :py:func:`auditlog.registry.register` instead.
+    """
+    if instance.pk is None or len(pk_set) == 0 or not action.startswith('post_'):
+        return
+    action = action[5:]
+    name = None
+    from django.db.models import ManyToManyField
+    for field in instance._meta.get_fields():
+        if isinstance(field, ManyToManyField):
+            if getattr(instance, field.name).through is sender:
+                name = field.name
+                break
+    if name is None:
+        return
+    LogEntry.objects.log_create(
+        instance,
+        action=LogEntry.Action.M2M_CHANGE,
+        changes=json.dumps({name: [action, list(pk_set)]}),
+    )

@@ -2,7 +2,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from django.db.models import Model
 from django.db.models.base import ModelBase
-from django.db.models.signals import ModelSignal, post_delete, post_save, pre_save
+from django.db.models.signals import m2m_changed, ModelSignal, post_delete, post_save, pre_save
 
 DispatchUID = Tuple[int, str, int]
 
@@ -17,9 +17,10 @@ class AuditlogModelRegistry(object):
         create: bool = True,
         update: bool = True,
         delete: bool = True,
+        m2m: bool = True,
         custom: Optional[Dict[ModelSignal, Callable]] = None,
     ):
-        from auditlog.receivers import log_create, log_delete, log_update
+        from auditlog.receivers import log_create, log_delete, log_m2m_change, log_update
 
         self._registry = {}
         self._signals = {}
@@ -30,6 +31,8 @@ class AuditlogModelRegistry(object):
             self._signals[pre_save] = log_update
         if delete:
             self._signals[post_delete] = log_delete
+        if m2m:
+            self._signals[m2m_changed] = log_m2m_change
 
         if custom is not None:
             self._signals.update(custom)
