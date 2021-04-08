@@ -74,7 +74,8 @@ def log_m2m_change(sender, instance, action, pk_set, **kwargs):
     from django.db.models import ManyToManyField
     for field in instance._meta.get_fields():
         if isinstance(field, ManyToManyField):
-            if getattr(instance, field.name).through is sender:
+            _field = getattr(instance, field.name)
+            if hasattr(_field, 'through') and _field.through is sender:
                 name = field.name
                 break
     if name is None:
