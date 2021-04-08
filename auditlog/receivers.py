@@ -67,21 +67,39 @@ def log_m2m_change(sender, instance, action, pk_set, **kwargs):
 
     Direct use is discouraged, connect your model through :py:func:`auditlog.registry.register` instead.
     """
-    if instance.pk is None or len(pk_set) == 0 or not action.startswith('post_'):
+    if instance.pk is None or action == 'post_clear':
         return
-    action = action[5:]
-    name = None
+    if action == 'pre_clear':
+        _log_m2m_clear(sender, instance)
+        return
+    if not action.startswith('post_') or len(pk_set) == 0:
+        return
+    field, _ = _get_field(sender, instance)
+    if field.name is None:
+        return
+    LogEntry.objects.log_create(
+        instance,
+        action=LogEntry.Action.M2M_CHANGE,
+        changes=json.dumps({field.name: [action[5:], list(pk_set)]}),
+    )
+
+
+def _log_m2m_clear(sender, instance):
+    field, _field = _get_field(sender, instance)
+    cleared = [item.pk for item in _field.all()]
+    if field.name is None or len(cleared) == 0:
+        return
+    LogEntry.objects.log_create(
+        instance,
+        action=LogEntry.Action.M2M_CHANGE,
+        changes=json.dumps({field.name: ['clear', cleared]}),
+    )
+
+
+def _get_field(sender, instance):
     from django.db.models import ManyToManyField
     for field in instance._meta.get_fields():
         if isinstance(field, ManyToManyField):
             _field = getattr(instance, field.name)
             if hasattr(_field, 'through') and _field.through is sender:
-                name = field.name
-                break
-    if name is None:
-        return
-    LogEntry.objects.log_create(
-        instance,
-        action=LogEntry.Action.M2M_CHANGE,
-        changes=json.dumps({name: [action, list(pk_set)]}),
-    )
+                return field, _field
